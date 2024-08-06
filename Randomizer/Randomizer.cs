@@ -1,12 +1,11 @@
 ﻿using MSCLoader;
 using UnityEngine;
-using System.Collections;
 using System.Collections.Generic;
 using HutongGames.PlayMaker;
 using HutongGames.PlayMaker.Actions;
 using UnityEngine.UI;
-using System.IO;
 using System.Linq;
+
 
 namespace Randomizer
 {
@@ -15,7 +14,7 @@ namespace Randomizer
         public override string ID => "Bp_Randomizer"; // Your (unique) mod ID 
         public override string Name => "Randomizer"; // Your mod name
         public override string Author => "Bitpro17"; // Name of the Author (your name)
-        public override string Version => "1.0"; // Version
+        public override string Version => "0.1"; // Version
         public override string Description => ""; // Short description of your mod
 
         public override void ModSetup()
@@ -34,49 +33,62 @@ namespace Randomizer
         SettingsCheckBox useCustomSounds;
         SettingsSlider customSoundRatio;
 
-        SettingsCheckBox ignoreWindshield;
+        internal SettingsCheckBox ignoreWindshield;
 
         SettingsCheckBox randomGUI;
         SettingsCheckBox randomSubtitles;
 
-        SettingsCheckBox randomRollingSounds;
+        internal SettingsCheckBox randomRollingSounds;
 
         SettingsCheckBox randomGravity;
         SettingsTextBox randomGravitySideways;
         SettingsTextBox randomGravityMinY;
         SettingsTextBox randomGravityMaxY;
 
+        SettingsCheckBox randomAnimations;
+        SettingsCheckBox randomTexts;
         
 
-        SettingsCheckBox randomMeshes;
-        SettingsTextBox randomMeshMaxSizes;
+        internal SettingsCheckBox randomMeshes;
+        internal SettingsTextBox randomMeshMaxSizes;
+        SettingsSlider randomMeshChance;
 
         private void Mod_Settings()
         {
-            Settings.AddText(this, "<size=30><b><color=red>Disabling options will not reset anything, you need to restart for that!</color></b></size>");
+            Settings.AddText(this, "<size=30><b><color=red>Options marked with asterisk (*) only work in the main menu!</color></b></size>");
 
             scrambleBind = Keybind.Add(this, "scrambleBind", "Randomize", KeyCode.R, KeyCode.LeftControl);
 
-            reRollOverTime = Settings.AddCheckBox(this, "reroll", "Re-roll over time", false, SetReRoll);
+            Settings.AddHeader(this, "Re rolling");
+            reRollOverTime = Settings.AddCheckBox(this, "reroll", "Re-roll over time", true, SetReRoll);
             minWait = Settings.AddTextBox(this, "minWait", "Min wait", "15", "", InputField.ContentType.DecimalNumber);
             maxWait = Settings.AddTextBox(this, "maxWait", "Max wait", "120", "", InputField.ContentType.DecimalNumber);
+
+            Settings.AddHeader(this, "Meshes");
+
+            randomMeshes = Settings.AddCheckBox(this, "meshes", "* Random meshes", true);
+            randomMeshMaxSizes = Settings.AddTextBox(this, "meshSizes", "* Max randomized mesh radius (cm)    (so everything doesnt get screwed)", "40", "", InputField.ContentType.DecimalNumber);
+            randomMeshChance = Settings.AddSlider(this, "meshChance", "Random mesh chance", 0f, 1f, 0.5f);
+
+            Settings.AddHeader(this, "Misc.");
+
+            randomAnimations = Settings.AddCheckBox(this, "animations", "* Random animations", true);
+            randomTexts = Settings.AddCheckBox(this, "texts", "* Randomize all text", true);
 
             useCustomSounds = Settings.AddCheckBox(this, "useCustom", "Use custom sounds (from asset folder)", true);
             customSoundRatio = Settings.AddSlider(this, "customRatio", "Custom sound amount (%)", 0f, 1f, 0.05f);
 
-            randomMeshes = Settings.AddCheckBox(this, "meshes", "Random meshes", true);
-            randomMeshMaxSizes = Settings.AddTextBox(this, "meshSizes", "Max randomized mesh radius (cm)    (so everything doesnt get screwed)", "20", "", InputField.ContentType.DecimalNumber);
+            ignoreWindshield = Settings.AddCheckBox(this, "windshield", "* Ignore windshields (so they stay see through)", true);
 
-            ignoreWindshield = Settings.AddCheckBox(this, "windshield", "Ignore windshields (so they stay see through)", true);
+            randomGUI = Settings.AddCheckBox(this, "gui", "* Random GUI", true);
 
-            randomGUI = Settings.AddCheckBox(this, "gui", "Random GUI", true);
+            randomSubtitles = Settings.AddCheckBox(this, "subtitles", "* Random Subtitles", true);
 
-            randomSubtitles = Settings.AddCheckBox(this, "subtitles", "Random Subtitles", true);
-
+            //Settings.AddHeader(this, "Not recommended garbage", false);
             Settings.AddText(this, "<b><color=red>The following setting might make loud sounds play when you drive around, not recommended but i made it:))</color></b>");
-            randomRollingSounds = Settings.AddCheckBox(this, "rollingSounds", "Random wheel rolling sounds", false);
+            randomRollingSounds = Settings.AddCheckBox(this, "rollingSounds", "* Random wheel rolling sounds", false);
 
-            randomGravity = Settings.AddCheckBox(this, "gravity", "Random gravity", false);
+            randomGravity = Settings.AddCheckBox(this, "gravity", "* Random gravity", false);
             randomGravitySideways = Settings.AddTextBox(this, "sideways", "Sideways", "0", "", InputField.ContentType.DecimalNumber);
             randomGravityMinY = Settings.AddTextBox(this, "min", "Min down", "3", "", InputField.ContentType.DecimalNumber);
             randomGravityMaxY = Settings.AddTextBox(this, "max", "Max down", "10", "", InputField.ContentType.DecimalNumber);
@@ -102,17 +114,22 @@ namespace Randomizer
 
             CreateReRoller();
 
-            GetMatsAndRenderers();
-            GetSmallMeshesAndFilters();
-            GetSoundsAndSources();
+            ReferenceGetter.r = this;
+            foreach (Transform t in Resources.FindObjectsOfTypeAll<Transform>().Where(x => x.parent == null))
+            { // add a script that gets references on awake, so when prefabs are instantiated their references are unique
+                ReferenceGetter rg = t.gameObject.AddComponent<ReferenceGetter>();
+                rg.isPrefab = false; //true by default, stays true for prefabs since you cant edit prefab variables:p
+            }
 
             GetAmbientColors();
 
-            LoadAssetsFromFile();
-
             GetSubtitleVariables();
             GetStats();
-            Randomize();
+
+            if (useCustomSounds.GetValue())
+                LoadAssetsFromFile();
+            else
+                Randomize();
         }
 
         void CreateReRoller()
@@ -196,25 +213,9 @@ namespace Randomizer
             return new Color(Random.Range(0f, 1f), Random.Range(0f, 1f), Random.Range(0f, 1f), 1);
         }
 
-        List<Material> materials = new List<Material>();
-        List<Material> windshieldMaterials = new List<Material>();
-        List<Renderer> renderers = new List<Renderer>();
-        void GetMatsAndRenderers()
-        {
-            foreach (Renderer renderer in Resources.FindObjectsOfTypeAll<Renderer>())
-            {
-                if (!(renderer.material.shader.name == "GUI/Text Shader"))
-                {
-                    if (ignoreWindshield.GetValue() && renderer.material.shader.name == "Windshield/windshield")
-                        windshieldMaterials.Add(renderer.material);
-                    else
-                    {
-                        materials.Add(renderer.material);
-                        renderers.Add(renderer);
-                    }
-                }
-            }
-        }
+        internal List<Material> materials = new List<Material>();
+        internal List<Material> windshieldMaterials = new List<Material>();
+        internal List<Renderer> renderers = new List<Renderer>();
 
         FsmColor[] ambientColors;
         void GetAmbientColors()
@@ -224,77 +225,122 @@ namespace Randomizer
             ModConsole.Log(fsm.name);
         }
 
-        List<MeshFilter> smallMeshFilters = new List<MeshFilter>();
-        List<Mesh> smallMeshes = new List<Mesh>();
-        void GetSmallMeshesAndFilters()
+        internal List<MeshContainer> meshContainers = new List<MeshContainer>();
+        internal class MeshContainer
         {
-            foreach(MeshFilter filter in Resources.FindObjectsOfTypeAll<MeshFilter>())
+            internal MeshFilter meshFilter;
+            internal Mesh originalMesh;
+
+            internal MeshContainer(MeshFilter meshFilter)
             {
-                if (filter.mesh.bounds.extents.magnitude < float.Parse(randomMeshMaxSizes.GetValue()) * 0.01f)
-                {
-                    smallMeshFilters.Add(filter);
-                    smallMeshes.Add(filter.mesh);
-                }
+                this.meshFilter = meshFilter;
+                this.originalMesh = meshFilter.mesh;
             }
         }
 
-        List<AudioClip> clips = new List<AudioClip>();
-        internal List<AudioClip> customClips = new List<AudioClip>();
-        List<AudioSource> audioSources = new List<AudioSource>();
-        SoundController[] soundControllers;
-        void GetSoundsAndSources()
+        internal List<AnimationContainer> animationContainers = new List<AnimationContainer>();
+        internal class AnimationContainer
         {
-            foreach (AudioSource ad in Resources.FindObjectsOfTypeAll<AudioSource>())
+            internal Animation animation;
+            internal string[] names;
+            internal AnimationContainer(Animation animation)
             {
-                if (ad.clip != null)
+                this.animation = animation;
+                List<string> n = new List<string>();
+                foreach(AnimationState state in animation)
                 {
-                    audioSources.Add(ad);
-                    clips.Add(ad.clip);
+                    n.Add(state.name);
                 }
+                names = n.ToArray();
             }
+        }
 
-            if (randomRollingSounds.GetValue())
-            {
-                soundControllers = Resources.FindObjectsOfTypeAll<SoundController>();
-                foreach (SoundController sc in soundControllers)
-                {
-                    clips.Add(sc.rollingNoiseGrass);
-                    clips.Add(sc.rollingNoiseOffroad);
-                }
-            }
+        internal List<AudioClip> clips = new List<AudioClip>();
+        internal List<AudioClip> customClips = new List<AudioClip>();
+        internal List<AudioSource> audioSources = new List<AudioSource>();
+
+        internal List<TextMesh> textMeshes = new List<TextMesh>();
+        internal List<string> texts = new List<string>();
+
+        internal List<SoundController> soundControllers = new List<SoundController>();
+
+        internal Material GetRandomMaterial()
+        {
+            return materials[Random.Range(0, materials.Count)];
         }
 
         internal void Randomize()
         {
-            List<Material> mats = new List<Material>(materials);
-            foreach (Renderer renderer in renderers)
+
+            try
             {
-                int rand = Random.Range(0, mats.Count);
-                renderer.material = materials[rand];
-                mats.RemoveAt(rand);
+                for (int i = 0; i < renderers.Count; i++)
+                {
+                    if (renderers[i] == null)
+                    {
+                        renderers.RemoveAt(i);
+                        i--;
+                    }
+                    else
+                        renderers[i].material = GetRandomMaterial();
+                }
             }
-
-            foreach (Material mat in windshieldMaterials)
+            catch (System.Exception e)
             {
-                Color color = GetRandomColor();
-                color.a = mat.color.a;
-                mat.color = color;
+                LogError(e);
             }
+            try
+            {
+                foreach (Material mat in windshieldMaterials)
+                {
+                    Color color = GetRandomColor();
+                    color.a = mat.color.a;
+                    mat.color = color;
+                }
 
-            SetWorldColors();
-            SetLights();
-            SetSounds();
+                SetWorldColors();
+                SetLights();
+                SetSounds();
+                if (randomSubtitles.GetValue())
+                    SetSubtitles();
 
-            if (randomSubtitles.GetValue())
-                SetSubtitles();
+                if (randomGUI.GetValue())
+                    SetGUI();
 
-            if (randomGUI.GetValue())
-                SetGUI();
-
-            if (randomGravity.GetValue())
-                SetGravity();
-
-            SetSmallMeshes();
+                if (randomGravity.GetValue())
+                    SetGravity();
+            }
+            catch (System.Exception e)
+            {
+                LogError(e);
+            }
+            try
+            {
+                if (randomMeshes.GetValue())
+                    SetMeshes();
+            }
+            catch (System.Exception e)
+            {
+                LogError(e);
+            }
+            try
+            {
+                if (randomAnimations.GetValue())
+                    SetAnimations();
+            }
+            catch (System.Exception e)
+            {
+                LogError(e);
+            }
+            try
+            {
+                if (randomTexts.GetValue())
+                    SetTextMeshes();
+            }
+            catch (System.Exception e)
+            {
+                LogError(e);
+            }
         }
 
         //void SetProjectionMatrix()
@@ -311,11 +357,82 @@ namespace Randomizer
         //    mainCam.projectionMatrix = matrix;
         //}
 
-        void SetSmallMeshes()
+
+        void SetTextMeshes()
         {
-            foreach (MeshFilter filter in smallMeshFilters)
+            for (int i = 0; i < textMeshes.Count; i++)
             {
-                filter.mesh = smallMeshes[Random.Range(0, smallMeshes.Count)];
+                if (textMeshes[i] == null)
+                {
+                    textMeshes.RemoveAt(i);
+                    i--;
+                }
+                else if (textMeshes[i].gameObject.activeInHierarchy)
+                {
+                    textMeshes[i].text = texts[Random.Range(0, texts.Count)];
+
+                    if (textMeshes[i].transform.childCount > 0)
+                    {
+                        TextMesh child = textMeshes[i].transform.GetChild(0).GetComponent<TextMesh>();
+                        if (child != null)
+                        {
+                            child.text = textMeshes[i].text;
+                        }
+                    }
+                }
+            }
+        }
+
+        void SetAnimations()
+        {
+            for (int i = 0; i < animationContainers.Count; i++)
+            {
+                if (animationContainers[i].animation == null)
+                {
+                    animationContainers.RemoveAt(i);
+                    i--;
+                }
+                else
+                {
+                    List<string> n = new List<string>(animationContainers[i].names);
+                    foreach (AnimationState state in animationContainers[i].animation)
+                    {
+                        int rand = Random.Range(0, n.Count);
+                        state.name = n[rand];
+                        n.RemoveAt(rand);
+                    }
+                }
+            }
+        }
+
+        MeshContainer[] changedMeshes = new MeshContainer[0];
+        void SetMeshes()
+        {
+            int amount = (int)(meshContainers.Count * randomMeshChance.GetValue());
+
+            foreach (MeshContainer mc in changedMeshes)
+            {
+                if (mc != null)
+                {
+                    mc.meshFilter.mesh = mc.originalMesh;
+                }
+            }
+
+            changedMeshes = new MeshContainer[amount];
+
+            for (int i = 0; i < amount; i++)
+            {
+                MeshContainer mc = meshContainers[Random.Range(0, meshContainers.Count)];
+                if (mc.meshFilter == null)
+                {
+                    meshContainers.RemoveAt(i);
+                    i--;
+                }
+                else
+                {
+                    mc.meshFilter.mesh = meshContainers[Random.Range(0, meshContainers.Count)].originalMesh;
+                    changedMeshes[i] = mc;
+                }
             }
         }
 
@@ -339,8 +456,8 @@ namespace Randomizer
             RenderSettings.ambientGroundColor = GetRandomColor();
             RenderSettings.ambientEquatorColor = GetRandomColor();
 
-            foreach(FsmColor color in ambientColors)
-                color.Value = GetRandomColor();
+            //foreach(FsmColor color in ambientColors)
+            //    color.Value = GetRandomColor();
         }
         void SetLights()
         {
@@ -352,26 +469,45 @@ namespace Randomizer
 
         void SetSounds()
         {
-            foreach (AudioSource ad in audioSources)
+            for (int i = 0; i < audioSources.Count; i++)
             {
-                bool isPlaying = ad.isPlaying;
-                ad.clip = PickRandomSound();
-                if (isPlaying || ad.playOnAwake)
-                    ad.Play();
+                AudioSource ad = audioSources[i];
+
+                if (ad == null)
+                {
+                    audioSources.RemoveAt(i);
+                    i--;
+                }
+                else
+                {
+                    bool isPlaying = ad.isPlaying;
+                    ad.clip = PickRandomSound();
+                    if (isPlaying || ad.playOnAwake)
+                        ad.Play();
+                }
             }
 
             if (randomRollingSounds.GetValue())
             {
-                foreach (SoundController sc in soundControllers)
+                for (int i = 0; i < soundControllers.Count; i++)
                 {
-                    sc.rollingNoiseGrass = PickRandomSound();
-                    sc.rollingNoiseOffroad = PickRandomSound();
+                    SoundController sc = soundControllers[i];
+                    if (sc == null)
+                    {
+                        soundControllers.RemoveAt(i);
+                        i--;
+                    }
+                    else
+                    {
+                        sc.rollingNoiseGrass = PickRandomSound();
+                        sc.rollingNoiseOffroad = PickRandomSound();
+                    }
                 }
             }
 
             AudioClip PickRandomSound()
             {
-                return (Random.Range(0f, 1f) < customSoundRatio.GetValue() && customClips.Count > 1) ? customClips[Random.Range(0, customClips.Count)] : clips[Random.Range(0, clips.Count)];
+                return (Random.Range(0f, 1f) < customSoundRatio.GetValue() && customClips.Count > 1) && useCustomSounds.GetValue() ? customClips[Random.Range(0, customClips.Count)] : clips[Random.Range(0, clips.Count)];
             }
         }
 
@@ -420,62 +556,10 @@ namespace Randomizer
         //    lastClip = clip;
         //    return clip;
         //}
-    }
 
-    internal class ReRoller : MonoBehaviour
-    {
-        internal Randomizer randomizer;
-        
-        void Start()
+        void LogError(System.Exception e)
         {
-            StopAllCoroutines();
-            StartCoroutine(Roller());
-        }
-
-        void OnEnable()
-        {
-            StopAllCoroutines();
-            StartCoroutine(Roller());
-        }
-
-        void OnDisable()
-        {
-            StopAllCoroutines();
-        }
-
-        IEnumerator Roller()
-        {
-            while (true)
-            {
-                float wait = Random.Range(float.Parse(randomizer.minWait.GetValue()), float.Parse(randomizer.maxWait.GetValue()));
-                yield return new WaitForSeconds(wait);
-                randomizer.Randomize();
-            }
-        }
-    }
-
-    internal class AssetLoader : MonoBehaviour
-    {
-        internal Randomizer randomizer;
-        internal void StartLoad()
-        {
-            StartCoroutine(Load());
-        }
-
-        IEnumerator Load()
-        {
-            int i = 0;
-            foreach (string file in Directory.GetFiles(ModLoader.GetModAssetsFolder(randomizer)))
-            {
-                if (file.EndsWith(".wav"))
-                {
-                    WWW www = new WWW("file:///" + file);
-                    yield return www;
-                    randomizer.customClips.Add(www.GetAudioClip(false));
-                    i++;
-                }
-            }
-            ModConsole.Log($"[Randomizer] Loaded {i} sound assets");
+            ModConsole.LogError("[Randomizer] did done screwed: " + e);
         }
     }
 }
