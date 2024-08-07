@@ -69,7 +69,7 @@ namespace Randomizer
             randomMeshes = Settings.AddCheckBox(this, "meshes", "* Random meshes", true);
             randomMeshMaxSizes = Settings.AddTextBox(this, "meshSizes", "* Max randomized mesh radius (cm)    (so everything doesnt get screwed)", "40", "", InputField.ContentType.DecimalNumber);
             randomMeshChance = Settings.AddSlider(this, "meshChance", "Random mesh chance", 0f, 1f, 0.5f);
-
+            
             Settings.AddHeader(this, "Misc.");
 
             randomAnimations = Settings.AddCheckBox(this, "animations", "* Random animations", true);
@@ -89,9 +89,9 @@ namespace Randomizer
             randomRollingSounds = Settings.AddCheckBox(this, "rollingSounds", "* Random wheel rolling sounds", false);
 
             randomGravity = Settings.AddCheckBox(this, "gravity", "* Random gravity", false);
-            randomGravitySideways = Settings.AddTextBox(this, "sideways", "Sideways", "0", "", InputField.ContentType.DecimalNumber);
-            randomGravityMinY = Settings.AddTextBox(this, "min", "Min down", "3", "", InputField.ContentType.DecimalNumber);
-            randomGravityMaxY = Settings.AddTextBox(this, "max", "Max down", "10", "", InputField.ContentType.DecimalNumber);
+            randomGravitySideways = Settings.AddTextBox(this, "sideways", "Sideways", "3", "", InputField.ContentType.DecimalNumber);
+            randomGravityMinY = Settings.AddTextBox(this, "min", "Min down", "4", "", InputField.ContentType.DecimalNumber);
+            randomGravityMaxY = Settings.AddTextBox(this, "max", "Max down", "12", "", InputField.ContentType.DecimalNumber);
         }
 
         void SetReRoll()
@@ -222,7 +222,6 @@ namespace Randomizer
         {
             PlayMakerFSM fsm = GameObject.Find("SUN/Pivot/SUN").GetComponent<PlayMakerFSM>();
             ambientColors = fsm.FsmVariables.ColorVariables;
-            ModConsole.Log(fsm.name);
         }
 
         internal List<MeshContainer> meshContainers = new List<MeshContainer>();
@@ -271,7 +270,6 @@ namespace Randomizer
 
         internal void Randomize()
         {
-
             try
             {
                 for (int i = 0; i < renderers.Count; i++)
@@ -412,7 +410,7 @@ namespace Randomizer
 
             foreach (MeshContainer mc in changedMeshes)
             {
-                if (mc != null)
+                if (mc.meshFilter != null)
                 {
                     mc.meshFilter.mesh = mc.originalMesh;
                 }
@@ -482,7 +480,7 @@ namespace Randomizer
                 {
                     bool isPlaying = ad.isPlaying;
                     ad.clip = PickRandomSound();
-                    if (isPlaying || ad.playOnAwake)
+                    if (ad.isActiveAndEnabled && (isPlaying || ad.playOnAwake))
                         ad.Play();
                 }
             }
