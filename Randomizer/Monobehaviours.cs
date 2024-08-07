@@ -107,7 +107,8 @@ namespace Randomizer
         {
             foreach (Animation anim in GetComponentsInChildren<Animation>(true))
             {
-                r.animationContainers.Add(new Randomizer.AnimationContainer(anim));
+                if (anim.gameObject.name != "AnimPivot")
+                    r.animationContainers.Add(new Randomizer.AnimationContainer(anim));
             }
         }
 

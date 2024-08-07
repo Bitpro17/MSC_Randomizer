@@ -14,7 +14,7 @@ namespace Randomizer
         public override string ID => "Bp_Randomizer"; // Your (unique) mod ID 
         public override string Name => "Randomizer"; // Your mod name
         public override string Author => "Bitpro17"; // Name of the Author (your name)
-        public override string Version => "0.2"; // Version
+        public override string Version => "0.3"; // Version
         public override string Description => ""; // Short description of your mod
 
         public override void ModSetup()
